@@ -1,5 +1,5 @@
 TAG := $(shell git describe --tags --always --dirty)
-CONTAINER_REPO ?= ghcr.io/changeme-org/changeme-gadget-name
+CONTAINER_REPO ?= ghcr.io/aruiz14/top-tcp-gadget
 IMAGE_TAG ?= $(TAG)
 CLANG_FORMAT ?= clang-format
 

@@ -1,14 +1,14 @@
-name: 'TODO: Fill the gadget name'
-description: 'TODO: Fill the gadget description'
+name: top-tcp
+description: Monitor TCP send and receive activity per connection
 tracers:
-  changeme_mytracer:
+  tcp:
     mapName: events
     structName: event
 structs:
   event:
     fields:
     - name: timestamp
-      description: Timestamp
+      description: Timestamp of the event
       attributes:
         template: timestamp
     - name: pid
@@ -23,3 +23,15 @@ structs:
       description: Mount namespace ID
       attributes:
         template: ns
+    - name: src
+      description: Source endpoint
+      attributes:
+        template: l4endpoint
+    - name: dst
+      description: Destination endpoint
+      attributes:
+        template: l4endpoint
+    - name: bytes
+      description: Number of bytes sent or received
+    - name: direction
+      description: Direction of the TCP operation (send or receive)
