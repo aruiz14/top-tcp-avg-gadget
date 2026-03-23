@@ -1,37 +1,25 @@
 name: top-tcp
-description: Monitor TCP send and receive activity per connection
-tracers:
+description: Periodically report TCP send and receive activity by connection
+datasources:
   tcp:
-    mapName: events
-    structName: event
-structs:
-  event:
+    annotations:
+      cli.clear-screen-before: "true"
     fields:
-    - name: timestamp
-      description: Timestamp of the event
-      attributes:
-        template: timestamp
-    - name: pid
-      description: Process ID
-      attributes:
-        template: pid
-    - name: comm
-      description: Process name
-      attributes:
-        template: comm
-    - name: mntns_id
-      description: Mount namespace ID
-      attributes:
-        template: ns
-    - name: src
-      description: Source endpoint
-      attributes:
-        template: l4endpoint
-    - name: dst
-      description: Destination endpoint
-      attributes:
-        template: l4endpoint
-    - name: bytes
-      description: Number of bytes sent or received
-    - name: direction
-      description: Direction of the TCP operation (send or receive)
+      sent_raw:
+        annotations:
+          description: Sent bytes
+      received_raw:
+        annotations:
+          description: Received bytes
+      src:
+        annotations:
+          template: l4endpoint
+      dst:
+        annotations:
+          template: l4endpoint
+params:
+  ebpf:
+    target_family:
+      key: family
+      defaultValue: "-1"
+      description: "Trace traffic from the specified IP family. Can be either 4 or 6. Specifying -1 means no filtering"
