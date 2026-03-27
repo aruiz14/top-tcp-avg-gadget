@@ -18,19 +18,27 @@ The UI automatically sorts by the highest projected usage, keeping the heaviest 
 
 ## How to use
 
+Inspektor Gadget checks the signature of the gadget images. In order to run this gadget, you need to either disable this verification or provide the correct public keys:
+Download the public key to verify the gadget's authenticity, then run it:
+
+```bash
+$ wget https://raw.githubusercontent.com/aruiz14/top-tcp-avg/main/cosign.pub -O top-tcp-avg.pub
+```
+You can also disable verification by using `--verify-image=false`.
+
 Run it locally using the `ig` CLI:
 ```bash
-$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest
+$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)"
 ```
 `ig` will look for the container runtime socket in the default paths for augmenting the data. Some Kubernetes runtimes use a non-default path for those.
 For example, to make it work on a k3s node, you may specify the correct path with `--containerd-socketpath`:
 ```bash
-$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --containerd-socketpath /run/k3s/containerd/containerd.sock
+$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)" --containerd-socketpath /run/k3s/containerd/containerd.sock
 ```
 
 Alternatively, using [kubectl node debug](https://github.com/inspektor-gadget/inspektor-gadget#kubectl-node-debug):
 ```bash
-$ kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- ig run ghcr.io/aruiz14/top-tcp-avg:latest --containerd-socketpath /run/k3s/containerd/containerd.sock
+$ kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)" --containerd-socketpath /run/k3s/containerd/containerd.sock
 ```
 > [!NOTE]
 > The node's filesystem is them mounted at `/host`, which is automatically handled by `ig`.
