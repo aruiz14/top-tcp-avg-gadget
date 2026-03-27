@@ -1,35 +1,44 @@
-# gadget-template
+# top-tcp-avg
 
-This repository is a template repository to help you create your own gadgets.
+`top-tcp-avg` is a leaderboard-style [Inspektor Gadget](https://inspektor-gadget.io/) module designed to identify the most active network connections and bandwidth hogs across your system or Kubernetes cluster.
 
-Steps to use this template:
-- Click on [use this template](https://github.com/new?template_name=gadget-template&template_owner=inspektor-gadget)
-- Choose a name for your repository
-- Click on *Create repository*
-- Update the placeholders (`git grep -i CHANGEME`, `git grep -i TODO`)
-- Write your eBPF program (follow [Hello world gadget](https://www.inspektor-gadget.io/docs/latest/gadget-devel/hello-world-gadget))
-- Delete this section from README.md
+Instead of just showing raw packets, this gadget uses an embedded WebAssembly (WASM) module to maintain the state of every connection over time. It continuously aggregates TCP send/receive activity by process and IP endpoints, calculating lifetime average bandwidth rates, tracking total data transferred, and projecting 24-hour data usage.
 
----
+The UI automatically sorts by the highest projected usage, keeping the heaviest hitters pinned to the top of your terminal.
 
-# CHANGEME-GADGET-NAME
+## Features
 
-CHANGEME-GADGET-NAME is a [gadget from Inspektor
-Gadget](https://inspektor-gadget.io/). It detects CHANGEME...
+* **Leaderboard View:** Automatically clears the screen and sorts connections by maximum 24h projected data usage.
+* **Smart Aggregation:** Groups traffic by Process (PID/Comm) and L3 Endpoints (Source/Destination IPs).
+* **Stateful Metrics:** Calculates accurate lifetime average rates (`Sent/s`, `Recv/s`) and total bytes transferred, even for connections that intermittently go idle.
+* **Kubernetes Native:** Automatically enriches connections with `k8s.namespace` and `k8s.podName` metadata when run in a cluster.
+
+> [!NOTE]
+> Aggregated data is only calculated during the duration of the gadget execution.
 
 ## How to use
 
+Run it locally using the `ig` CLI:
 ```bash
-$ sudo ig run ghcr.io/CHANGEME-ORG/CHANGEME-GADGET-NAME:latest
+$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest
+```
+`ig` will look for the container runtime socket in the default paths for augmenting the data. Some Kubernetes runtimes use a non-default path for those.
+For example, to make it work on a k3s node, you may specify the correct path with `--containerd-socketpath`:
+```bash
+$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --containerd-socketpath /run/k3s/containerd/containerd.sock
 ```
 
+Alternatively, using [kubectl node debug](https://github.com/inspektor-gadget/inspektor-gadget#kubectl-node-debug):
+```bash
+$ kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- ig run ghcr.io/aruiz14/top-tcp-avg:latest --containerd-socketpath /run/k3s/containerd/containerd.sock
+```
+> [!NOTE]
+> The node's filesystem is them mounted at `/host`, which is automatically handled by `ig`.
+
 ## Requirements
+ - `ig` v0.50.1 or later (Tested on 0.50.1, relies on recent WASM and Operator pipeline features)
+ - Linux v5.15 or later (Requires modern eBPF features)
 
-- ig v0.26.0 (CHANGEME)
-- Linux v5.15 (CHANGEME)
-
-## License (CHANGEME)
-
-The user space components are licensed under the [Apache License, Version
-2.0](LICENSE). The BPF code templates are licensed under the [General Public
-License, Version 2.0, with the Linux-syscall-note](LICENSE-bpf.txt).
+## License
+The user space components are licensed under the [Apache License, Version 2.0](./LICENSE).
+The BPF code templates are licensed under the [General Public License, Version 2.0, with the Linux-syscall-note](./LICENSE-bpf.txt).

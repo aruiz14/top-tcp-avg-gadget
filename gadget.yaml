@@ -1,25 +1,80 @@
-name: 'TODO: Fill the gadget name'
-description: 'TODO: Fill the gadget description'
-tracers:
-  changeme_mytracer:
-    mapName: events
-    structName: event
-structs:
-  event:
+name: top-tcp-avg
+description: Profiler for TCP send/receive activity over a specified interval
+homepageURL: https://github.com/aruiz14/top-tcp-avg-gadget
+documentationURL: https://github.com/aruiz14/top-tcp-avg-gadget
+sourceURL: https://github.com/aruiz14/top-tcp-avg-gadget
+paramDefaults:
+  # leaderboard style based on total usage projection. Default field selection, sorting and refresh interval can be changed via CLI flags
+  operator.cli.fields: "tcp:k8s.namespace,k8s.podName,comm,src,dst,sent_rate_avg,recv_rate_avg,total,proj_24h"
+  operator.sort.sort: "-_proj_24h_bytes"
+  operator.oci.ebpf.map-fetch-interval: 2s
+datasources:
+  tcp:
+    annotations:
+      cli.clear-screen-before: "true"
     fields:
-    - name: timestamp
-      description: Timestamp
-      attributes:
-        template: timestamp
-    - name: pid
-      description: Process ID
-      attributes:
-        template: pid
-    - name: comm
-      description: Process name
-      attributes:
-        template: comm
-    - name: mntns_id
-      description: Mount namespace ID
-      attributes:
-        template: ns
+      # Hidden Source Raw Fields. This gadget relies heavily on the transformation performed by the WASM Go module
+      # Fields originated on kernel-space by the BPF program cannot be easily manipulated.
+      # For this reason, we'll only use it as incoming source of data, but not for the displaying the output.
+      _mntns_id:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _pid:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _comm:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _src:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _dst:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _ts:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _sent_raw:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+      _recv_raw:
+        annotations: { json.skip: "true", columns.hidden: "true" }
+
+      # Exported fields, directly mapped from the C/BPF source
+      pid:
+        annotations:
+          template: pid
+      comm:
+        annotations:
+          template: comm
+          columns.alignment: left
+      src:
+        annotations:
+          columns.alignment: left
+          columns.width: 15
+      dst:
+        annotations:
+          columns.alignment: left
+          columns.width: 15
+
+      # Exported fields, calculated by aggregating data over time
+      sent_rate_avg:
+        annotations:
+          description: Sent rate average over time
+          columns.alignment: right
+      recv_rate_avg:
+        annotations:
+          description: Received rate average over time
+          columns.alignment: right
+      total:
+        annotations:
+          description: Total bytes transferred/received in period
+          columns.alignment: right
+      proj_24h:
+        annotations:
+          description: 24h projection for transferred+received data
+          columns.alignment: right
+      # Hidden field, used to ease sorting
+      _proj_24h_bytes:
+        annotations:
+          description: 24h projection for transferred+received data, in bytes
+          columns.hidden: "true"
+params:
+  ebpf:
+    target_family:
+      key: family
+      defaultValue: "-1"
+      description: "Trace traffic from the specified IP family. Can be either 4 or 6. Specifying -1 means no filtering"
