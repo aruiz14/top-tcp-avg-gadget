@@ -22,7 +22,7 @@ Inspektor Gadget checks the signature of the gadget images. In order to run this
 Download the public key to verify the gadget's authenticity, then run it:
 
 ```bash
-$ wget https://raw.githubusercontent.com/aruiz14/top-tcp-avg/main/cosign.pub -O top-tcp-avg.pub
+$ wget https://raw.githubusercontent.com/aruiz14/top-tcp-avg-gadget/main/cosign.pub -O top-tcp-avg.pub
 ```
 You can also disable verification by using `--verify-image=false`.
 
