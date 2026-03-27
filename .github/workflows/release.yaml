@@ -28,12 +28,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Gadget
-        run: make push
+        run: |
+          make push
 
       - name: Sign the published Gadget image
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-          TAG: ${{ github.ref_name }}
         run: |
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY ghcr.io/aruiz14/top-tcp-avg:${TAG}
+          digest=$(tar -xOf build/image.tar index.json | jq -er '.mediaType as $mediaType| .manifests | map(select(.mediaType == $mediaType))[0].digest')
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY ghcr.io/aruiz14/top-tcp-avg@${digest}
