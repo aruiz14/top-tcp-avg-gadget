@@ -22,26 +22,51 @@ Inspektor Gadget checks the signature of the gadget images. In order to run this
 Download the public key to verify the gadget's authenticity, then run it:
 
 ```bash
-$ wget https://raw.githubusercontent.com/aruiz14/top-tcp-avg-gadget/main/cosign.pub -O top-tcp-avg.pub
+wget https://raw.githubusercontent.com/aruiz14/top-tcp-avg-gadget/main/cosign.pub -O top-tcp-avg.pub
 ```
 You can also disable verification by using `--verify-image=false`.
 
-Run it locally using the `ig` CLI:
+### Run it locally using the `ig` CLI:
 ```bash
-$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)"
+sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)"
 ```
 `ig` will look for the container runtime socket in the default paths for augmenting the data. Some Kubernetes runtimes use a non-default path for those.
 For example, to make it work on a k3s node, you may specify the correct path with `--containerd-socketpath`:
 ```bash
-$ sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)" --containerd-socketpath /run/k3s/containerd/containerd.sock
+sudo ig run ghcr.io/aruiz14/top-tcp-avg:latest \
+  --public-keys="$(cat top-tcp-avg.pub)" \
+  --containerd-socketpath /run/k3s/containerd/containerd.sock
 ```
 
-Alternatively, using [kubectl node debug](https://github.com/inspektor-gadget/inspektor-gadget#kubectl-node-debug):
+### Run it using [kubectl node debug](https://github.com/inspektor-gadget/inspektor-gadget#kubectl-node-debug):
 ```bash
-$ kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- ig run ghcr.io/aruiz14/top-tcp-avg:latest --public-keys="$(cat top-tcp-avg.pub)" --containerd-socketpath /run/k3s/containerd/containerd.sock
+kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- \
+  ig run ghcr.io/aruiz14/top-tcp-avg:latest \
+    --public-keys="$(cat top-tcp-avg.pub)" \
+    --containerd-socketpath /run/k3s/containerd/containerd.sock
 ```
 > [!NOTE]
 > The node's filesystem is them mounted at `/host`, which is automatically handled by `ig`.
+
+### Useful `ig` options
+
+#### Filter by src/dst IPs to omit localhost and internal cluster traffic
+```bash
+kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- \
+  ig run ghcr.io/aruiz14/top-tcp-avg:latest \
+    --public-keys="$(cat top-tcp-avg.pub)" \
+    --containerd-socketpath /run/k3s/containerd/containerd.sock \
+    --filter.tcp 'src!=127.0.0.1,dst!~10\.(42|43)\.'
+```
+
+#### Include traffic from all process, not only Kubernetes
+```bash
+kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-gadget/ig:latest -- \
+  ig run ghcr.io/aruiz14/top-tcp-avg:latest \
+    --public-keys="$(cat top-tcp-avg.pub)" \
+    --containerd-socketpath /run/k3s/containerd/containerd.sock \
+    --host
+```
 
 ## Requirements
  - `ig` v0.50.1 or later (Tested on 0.50.1, relies on recent WASM and Operator pipeline features)
