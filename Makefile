@@ -18,6 +18,10 @@ push: build
 	docker run --rm -v ig:/var/lib/ig -v $(PWD):/ws -w /ws ghcr.io/inspektor-gadget/ig:$(IG_VERSION) image import build/image.tar
 	docker run --rm -v ig:/var/lib/ig -v $(PWD):/ws -v $$HOME/.docker/config.json:/root/.docker/config.json -w /ws ghcr.io/inspektor-gadget/ig:$(IG_VERSION) image push $(CONTAINER_REPO):$(IMAGE_TAG)
 
+push-latest:
+	docker run --rm -v ig:/var/lib/ig -v $(PWD):/ws -w /ws ghcr.io/inspektor-gadget/ig:$(IG_VERSION) image tag $(CONTAINER_REPO):$(IMAGE_TAG) $(CONTAINER_REPO):latest
+	docker run --rm -v ig:/var/lib/ig -v $(PWD):/ws -v $$HOME/.docker/config.json:/root/.docker/config.json -w /ws ghcr.io/inspektor-gadget/ig:$(IG_VERSION) image push $(CONTAINER_REPO):latest
+
 .PHONY: clang-format
 clang-format:
 	$(CLANG_FORMAT) -i program.bpf.c

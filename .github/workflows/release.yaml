@@ -38,3 +38,7 @@ jobs:
         run: |
           digest=$(tar -xOf build/image.tar index.json | jq -er '.mediaType as $mediaType| .manifests | map(select(.mediaType == $mediaType))[0].digest')
           cosign sign --yes --key env://COSIGN_PRIVATE_KEY ghcr.io/aruiz14/top-tcp-avg@${digest}
+
+      - name: Push latest tag
+        run: |
+          make push-latest
