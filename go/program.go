@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	secondsPerDay = 24 * 60 * 60
-	priority      = 1000 // schedule after data enrichment already happened
+	secondsPerDay       = 24 * 60 * 60
+	priority            = 1000  // schedule after data enrichment already happened
+	cliOperatorPriority = 10001 // from https://github.com/inspektor-gadget/inspektor-gadget/blob/v0.50.1/pkg/operators/cli/clioperator.go#L47
 )
 
 func getSourceFields(ds api.DataSource) sourceFields {
@@ -377,7 +378,45 @@ func gadgetInit() (res int32) {
 		return -1
 	}
 
+	if err := configureFooter(ds); err != nil {
+		// not critical, we can continue
+		api.Warn(err)
+	}
+
 	return 0
+}
+
+// configureFooter registers a callback that is executed for every data array on the main datasource, but the CLI operator printed the output.
+// This allows adding a footer with custom data, in this case, the elapsed time
+func configureFooter(ds api.DataSource) error {
+	ods, err := api.NewDataSource("output", api.DataSourceTypeSingle)
+	if err != nil {
+		return fmt.Errorf("creating output datasource field: %w", err)
+	}
+	outputField, err := ods.AddField("_text", api.Kind_String)
+	if err != nil {
+		return fmt.Errorf("adding text field: %w", err)
+	}
+
+	// Subscribe to the main datasource, with priority higher than the CLI operator.
+	// This allows printing after all the output has already been written
+	const priority = cliOperatorPriority + 1
+	return ds.SubscribeArray(func(source api.DataSource, dataArray api.DataArray) error {
+		if startTime.IsZero() {
+			return nil
+		}
+
+		// Docs: https://inspektor-gadget.io/docs/latest/gadget-devel/output
+		nd, err := ods.NewPacketSingle()
+		if err != nil {
+			return err
+		}
+		elapsed := now.Sub(startTime).Round(time.Second)
+		if err := outputField.SetString(api.Data(nd), fmt.Sprintf("--- Elapsed: %s ---", elapsed)); err != nil {
+			return err
+		}
+		return ods.EmitAndRelease(api.Packet(nd))
+	}, priority)
 }
 
 /* utils.go */
@@ -390,7 +429,10 @@ func normalizeTs(ns uint64) time.Time {
 // The WASM clock cannot be trusted, we need to take it from the highest value observed from samples
 // Every sample's "_ts" (obtained from bpf_ktime_get_boot_ns()) contains nanoseconds elapsed since system boot
 // We don't need absolute time, just all our values to use the same base/epoch
-var now time.Time
+var (
+	startTime time.Time
+	now       time.Time
+)
 
 func getSampleTimestamp(data api.Data, src sourceFields) (time.Time, error) {
 	tsNs, err := src.ts.Uint64(data)
@@ -403,6 +445,10 @@ func getSampleTimestamp(data api.Data, src sourceFields) (time.Time, error) {
 	// Update artificial clock, if needed
 	if ts.After(now) {
 		now = ts
+	}
+	// Record oldest timestamp observed
+	if startTime.IsZero() || ts.Before(startTime) {
+		startTime = ts
 	}
 	return ts, nil
 }
