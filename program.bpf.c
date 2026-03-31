@@ -79,16 +79,27 @@ probe_ip(bool receiving, struct sock *sk, size_t size)
                           sizeof(sk->__sk_common.skc_daddr),
                           &sk->__sk_common.skc_daddr);
   } else {
-    ip_key._src.version = ip_key._dst.version = 6;
-    bpf_probe_read_kernel(
-      &ip_key._src.addr_raw.v6,
-      sizeof(sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32),
-      &sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
-    bpf_probe_read_kernel(
-      &ip_key._dst.addr_raw.v6,
-      sizeof(sk->__sk_common.skc_v6_daddr.in6_u.u6_addr32),
-      &sk->__sk_common.skc_v6_daddr.in6_u.u6_addr32);
-  }
+    __u32 saddr[4];
+    __u32 daddr[4];
+    bpf_probe_read_kernel(&saddr, sizeof(saddr), &sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
+    bpf_probe_read_kernel(&daddr, sizeof(daddr), &sk->__sk_common.skc_v6_daddr.in6_u.u6_addr32);
+
+    // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x) into pure IPv4
+    if (saddr[0] == 0 && saddr[1] == 0 && saddr[2] == bpf_htonl(0x0000FFFF)) {
+      ip_key._src.version = 4;
+      ip_key._src.addr_raw.v4 = saddr[3];
+    } else {
+      ip_key._src.version = 6;
+      __builtin_memcpy(&ip_key._src.addr_raw.v6, &saddr, sizeof(ip_key._src.addr_raw.v6));
+    }
+
+    if (daddr[0] == 0 && daddr[1] == 0 && daddr[2] == bpf_htonl(0x0000FFFF)) {
+      ip_key._dst.version = 4;
+      ip_key._dst.addr_raw.v4 = daddr[3];
+    } else {
+      ip_key._dst.version = 6;
+      __builtin_memcpy(&ip_key._dst.addr_raw.v6, &daddr, sizeof(ip_key._dst.addr_raw.v6));
+    }  }
 
   trafficp = bpf_map_lookup_elem(&ip_map, &ip_key);
   if (!trafficp) {
