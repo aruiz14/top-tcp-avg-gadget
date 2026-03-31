@@ -6,7 +6,7 @@ sourceURL: https://github.com/aruiz14/top-tcp-avg-gadget
 paramDefaults:
   # leaderboard style based on total usage projection. Default field selection, sorting and refresh interval can be changed via CLI flags
   operator.cli.fields: "tcp:k8s.namespace,k8s.podName,comm,src,dst,sent_rate_avg,recv_rate_avg,total,proj_24h"
-  operator.sort.sort: "-tcp:_proj_24h_bytes"
+  operator.sort.sort: "tcp:-_proj_24h_bytes"
   operator.oci.ebpf.map-fetch-interval: 2s
 datasources:
   tcp:
