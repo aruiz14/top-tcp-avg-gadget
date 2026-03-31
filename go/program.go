@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	secondsPerDay       = 24 * 60 * 60
-	priority            = 1000  // schedule after data enrichment already happened
-	cliOperatorPriority = 10001 // from https://github.com/inspektor-gadget/inspektor-gadget/blob/v0.50.1/pkg/operators/cli/clioperator.go#L47
+	secondsPerDay          = 24 * 60 * 60
+	filterOperatorPriority = 9000
+	cliOperatorPriority    = 10001 // from https://github.com/inspektor-gadget/inspektor-gadget/blob/v0.50.1/pkg/operators/cli/clioperator.go#L47
 )
 
 func getSourceFields(ds api.DataSource) sourceFields {
@@ -305,6 +305,7 @@ func gadgetInit() (res int32) {
 	// 1. For entries present on the data array, we'll increment counters and calculate the necessary stats.
 	// 2. Previous entries not included in the data array will be recovered from historical data, updated and emitted as well.
 	// This way, the resulting table will include accurate up-to-date information of all process, despite they don't constantly produce activity.
+	const priority = filterOperatorPriority - 1
 	if err := ds.SubscribeArray(func(source api.DataSource, dataArray api.DataArray) error {
 		if enrichedFields == nil {
 			enrichedFields = getEnrichedFields(ds)
