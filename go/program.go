@@ -31,7 +31,7 @@ func getEnrichedFields(ds api.DataSource) (res *enrichedFields) {
 	// enrichedFields are dynamically added and must be retrieved lazily, which could fail in some environments
 	defer func() {
 		if err := recover(); err != nil {
-			api.Warn("Cannot get enriched fields: %v", err)
+			api.Warnf("Cannot get enriched fields: %v", err)
 			res = nil
 		}
 	}()
@@ -101,23 +101,23 @@ func (f sourceFields) newEntryFrom(data api.Data) (*statsEntry, error) {
 	}
 	mntns, err := f.mntnsId.Uint64(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`reading "_mntns_id" field: %w`, err)
 	}
 	pid, err := f.pid.Uint32(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`reading "_pid" field: %w`, err)
 	}
 	comm, err := f.comm.String(data, 256)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`reading "_comm" field: %w`, err)
 	}
 	srcIP, err := getIPFromField(data, f.src)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`parsing IP from "_src" field: %w`, err)
 	}
 	dstIP, err := getIPFromField(data, f.dst)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`parsing IP from "_dst" field: %w`, err)
 	}
 	return &statsEntry{
 		FirstSeen: ts,
@@ -132,11 +132,12 @@ func (f sourceFields) newEntryFrom(data api.Data) (*statsEntry, error) {
 func (f sourceFields) increaseCounters(data api.Data, s *statsEntry) error {
 	sentRaw, err := f.sentRaw.Uint64(data)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "_sent_raw" field: %w`, err)
+
 	}
 	recvRaw, err := f.receivedRaw.Uint64(data)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "_recv_raw" field: %w`, err)
 	}
 
 	s.SentRaw += sentRaw
@@ -162,23 +163,23 @@ func (f *enrichedFields) saveEnrichedData(data api.Data, state *statsEntry) (err
 	}
 	state.k8sNode, err = f.k8sNode.String(data, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "k8s.node" field: %w`, err)
 	}
 	state.k8sNamespace, err = f.k8sNamespace.String(data, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "k8s.namespace" field: %w`, err)
 	}
 	state.k8sPodName, err = f.k8sPodName.String(data, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "k8s.podName" field: %w`, err)
 	}
 	state.k8sContainerName, err = f.k8sContainerName.String(data, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "k8s.containerName" field: %w`, err)
 	}
 	state.k8sPodLabels, err = f.k8sPodLabels.String(data, 1024)
 	if err != nil {
-		return err
+		return fmt.Errorf(`reading "k8s.podLabels" field: %w`, err)
 	}
 
 	return nil
@@ -190,19 +191,19 @@ func (f *enrichedFields) setFromState(data api.Data, state *statsEntry) error {
 		return nil
 	}
 	if err := f.k8sNode.SetString(data, state.k8sNode); err != nil {
-		return err
+		return fmt.Errorf(`setting "k8s.node" field: %w`, err)
 	}
 	if err := f.k8sNamespace.SetString(data, state.k8sNamespace); err != nil {
-		return err
+		return fmt.Errorf(`setting "k8s.namespace" field: %w`, err)
 	}
 	if err := f.k8sPodName.SetString(data, state.k8sPodName); err != nil {
-		return err
+		return fmt.Errorf(`setting "k8s.podName" field: %w`, err)
 	}
 	if err := f.k8sContainerName.SetString(data, state.k8sContainerName); err != nil {
-		return err
+		return fmt.Errorf(`setting "k8s.containerName" field: %w`, err)
 	}
 	if err := f.k8sPodLabels.SetString(data, state.k8sPodLabels); err != nil {
-		return err
+		return fmt.Errorf(`setting "k8s.podLabels" field: %w`, err)
 	}
 	return nil
 }
@@ -238,35 +239,36 @@ func populateMath(data api.Data, exported exportedFields, state *statsEntry) err
 	proj24Bytes := totalRateBytes * secondsPerDay
 
 	if err := exported.sentRate.SetString(data, formatBytes(sentRateBytes)+"/s"); err != nil {
-		return err
+		return fmt.Errorf(`setting "sent_rate_avg" field: %w`, err)
 	}
 	if err := exported.recvRate.SetString(data, formatBytes(recvRateBytes)+"/s"); err != nil {
-		return err
+		return fmt.Errorf(`setting "recv_rate_avg" field: %w`, err)
 	}
 	if err := exported.total.SetString(data, formatBytes(totalBytes)); err != nil {
-		return err
+		return fmt.Errorf(`setting "total" field: %w`, err)
+
 	}
 	if err := exported.proj24.SetString(data, formatBytes(proj24Bytes)); err != nil {
-		return err
+		return fmt.Errorf(`setting "proj_24h" field: %w`, err)
 	}
 	if err := exported.proj24Bytes.SetUint64(data, uint64(proj24Bytes)); err != nil {
-		return err
+		return fmt.Errorf(`setting "_proj_24h_bytes" field: %w`, err)
 	}
 	return nil
 }
 
 func populateExportedFields(data api.Data, exported exportedFields, enriched *enrichedFields, state *statsEntry) error {
 	if err := exported.pid.SetUint32(data, state.Pid); err != nil {
-		return err
+		return fmt.Errorf(`setting "pid" field: %w`, err)
 	}
 	if err := exported.comm.SetString(data, state.Comm); err != nil {
-		return err
+		return fmt.Errorf(`setting "comm" field: %w`, err)
 	}
 	if err := exported.src.SetString(data, state.Src); err != nil {
-		return err
+		return fmt.Errorf(`setting "src" field: %w`, err)
 	}
 	if err := exported.dst.SetString(data, state.Dst); err != nil {
-		return err
+		return fmt.Errorf(`setting "dst" field: %w`, err)
 	}
 	if err := enriched.setFromState(data, state); err != nil {
 		return err
@@ -367,7 +369,7 @@ func gadgetInit() (res int32) {
 				}
 
 				if err := dataArray.Append(newData); err != nil {
-					api.Warn(err)
+					api.Warnf("appending data entry: %v", err)
 					continue
 				}
 			}
@@ -414,7 +416,7 @@ func configureFooter(ds api.DataSource) error {
 		}
 		elapsed := now.Sub(startTime).Round(time.Second)
 		if err := outputField.SetString(api.Data(nd), fmt.Sprintf("--- Elapsed: %s ---", elapsed)); err != nil {
-			return err
+			return fmt.Errorf(`setting "_text" field: %w`, err)
 		}
 		return ods.EmitAndRelease(api.Packet(nd))
 	}, priority)
@@ -438,7 +440,7 @@ var (
 func getSampleTimestamp(data api.Data, src sourceFields) (time.Time, error) {
 	tsNs, err := src.ts.Uint64(data)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf(`reading "_ts" field: %w`, err)
 	}
 
 	ts := normalizeTs(tsNs)
@@ -533,7 +535,7 @@ type setupError error
 func mustGetField(ds api.DataSource, name string) api.Field {
 	field, err := ds.GetField(name)
 	if err != nil {
-		panic(setupError(err))
+		panic(setupError(fmt.Errorf("getting field %q: %w", name, err)))
 	}
 	return field
 }
@@ -541,7 +543,7 @@ func mustGetField(ds api.DataSource, name string) api.Field {
 func mustAddField(ds api.DataSource, name string, kind api.FieldKind) api.Field {
 	field, err := ds.AddField(name, kind)
 	if err != nil {
-		panic(setupError(err))
+		panic(setupError(fmt.Errorf("adding field %q: %w", name, err)))
 	}
 	return field
 }
