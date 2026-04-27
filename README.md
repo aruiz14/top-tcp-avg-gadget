@@ -69,7 +69,7 @@ kubectl debug --profile=sysadmin node/NODE_NAME -ti --image=ghcr.io/inspektor-ga
 ```
 
 ## Requirements
- - `ig` v0.50.1 or later (Tested on 0.50.1, relies on recent WASM and Operator pipeline features)
+ - `ig` v0.51.1 or later (Tested on 0.51.1, relies on recent WASM and Operator pipeline features)
  - Linux v5.15 or later (Requires modern eBPF features)
 
 ## License

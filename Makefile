@@ -2,7 +2,7 @@ TAG := $(shell git describe --tags --always --dirty)
 CONTAINER_REPO ?= ghcr.io/aruiz14/top-tcp-avg
 IMAGE_TAG ?= $(TAG)
 CLANG_FORMAT ?= clang-format
-IG_VERSION ?= v0.50.1
+IG_VERSION ?= v0.51.1
 GOARCH ?= $(shell docker version --format='{{.Server.Arch}}')
 
 .PHONY: build
