@@ -317,40 +317,46 @@ func gadgetInit() (res int32) {
 		// 1. Process active connections
 		for i := range dataArray.Len() {
 			data := dataArray.Get(i)
+			if err := func() (err error) {
+				defer func() {
+					if rerr := dataArray.Release(data); err != nil {
+						err = rerr
+					}
+				}()
 
-			// Retrieve base fields from data entry, needed for building the unique identifier
-			entry, err := sourceFields.newEntryFrom(data)
-			if err != nil {
-				api.Warn(err)
-				continue
-			}
-			entryID := entry.id()
-
-			// Load previous entry, if present. otherwise complete the data from this entry and store it
-			if s, ok := statsMap[entryID]; ok {
-				entry = s
-			} else {
-				if err := enrichedFields.saveEnrichedData(data, entry); err != nil {
-					api.Warn(err)
-					continue
+				// Retrieve base fields from data entry, needed for building the unique identifier
+				entry, err := sourceFields.newEntryFrom(data)
+				if err != nil {
+					return err
 				}
-				statsMap[entryID] = entry
-			}
+				entryID := entry.id()
 
-			// Observe stats
-			if err := sourceFields.increaseCounters(data, entry); err != nil {
+				// Load previous entry, if present. otherwise complete the data from this entry and store it
+				if s, ok := statsMap[entryID]; ok {
+					entry = s
+				} else {
+					if err := enrichedFields.saveEnrichedData(data, entry); err != nil {
+						return err
+					}
+					statsMap[entryID] = entry
+				}
+
+				// Observe stats
+				if err := sourceFields.increaseCounters(data, entry); err != nil {
+					return err
+				}
+
+				// Finally emit fields by calculating all stats
+				if err := populateExportedFields(data, exportedFields, enrichedFields, entry); err != nil {
+					return err
+				}
+
+				// Mark this entry as already emitted
+				emitted[entryID] = struct{}{}
+				return nil
+			}(); err != nil {
 				api.Warn(err)
-				continue
 			}
-
-			// Finally emit fields by calculating all stats
-			if err := populateExportedFields(data, exportedFields, enrichedFields, entry); err != nil {
-				api.Warn(err)
-				continue
-			}
-
-			// Mark this entry as already emitted
-			emitted[entryID] = struct{}{}
 		}
 
 		// 2. Append idle connections that weren't in this interval's kernel flush
@@ -363,14 +369,23 @@ func gadgetInit() (res int32) {
 					break
 				}
 
-				if err := populateExportedFields(newData, exportedFields, enrichedFields, state); err != nil {
-					api.Warn(err)
-					continue
-				}
+				if err := func() (err error) {
+					defer func() {
+						if rerr := dataArray.Release(newData); err != nil {
+							err = rerr
+						}
+					}()
 
-				if err := dataArray.Append(newData); err != nil {
-					api.Warnf("appending data entry: %v", err)
-					continue
+					if err := populateExportedFields(newData, exportedFields, enrichedFields, state); err != nil {
+						return err
+					}
+
+					if err := dataArray.Append(newData); err != nil {
+						return fmt.Errorf("appending data entry: %w", err)
+					}
+					return nil
+				}(); err != nil {
+					api.Warn(err)
 				}
 			}
 		}
